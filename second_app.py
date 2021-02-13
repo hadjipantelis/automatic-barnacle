@@ -22,8 +22,8 @@ p_world_cities = p_world_cities[p_world_cities.population >
 # %%
 option_city = st.selectbox(
     'What is your town (assuming it has 100K pop.):', np.sort(p_world_cities.city_ascii))
-option_nn = st.selectbox('How many nearst neighbors:', np.arange(3, 13))
-st.write(f"You selected {option_nn} neighbors arund {option_city}")
+option_nn = st.selectbox('How many nearest neighbors:', np.arange(3, 13))
+st.write(f"You selected {option_nn} neighbors around {option_city}")
 
 k = option_nn
 nbrs = NearestNeighbors(n_neighbors=k, algorithm='ball_tree')
@@ -41,7 +41,7 @@ st.pydeck_chart(pdk.Deck(
     initial_view_state=pdk.ViewState(
         latitude=np.median(map_data.lat),
         longitude=np.median(map_data.lon),
-        zoom=4,
+        zoom=5,
         pitch=5,
     ),
     layers=[
