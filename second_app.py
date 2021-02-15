@@ -10,7 +10,7 @@ st.title('My second app')
 # %%
 # Data from:
 # https://simplemaps.com/static/data/world-cities/basic/simplemaps_worldcities_basicv1.73.zip
-p_world_cities = pd.read_csv("worldcities.csv")
+p_world_cities = pd.read_csv("data/worldcities.csv")
 # p_world_cities= p_world_cities[ "primary" ==p_world_cities.capital]
 # p_world_cities= p_world_cities.sort_values(
 # "population").drop_duplicates(["iso3"]).reset_index(drop=True)
