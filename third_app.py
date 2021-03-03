@@ -2,8 +2,7 @@
 import streamlit as st
 import numpy as np
 import pandas as pd
-import pydeck as pdk
-from fuzzywuzzy import process, fuzz
+import pydeck as pdk 
 from sklearn.neighbors import NearestNeighbors
 from sklearn.preprocessing import StandardScaler
 
@@ -126,7 +125,7 @@ cols_for_metric = ['noise']
 
 if option_age == "Yes":
     cols_for_metric = cols_for_metric + ["pop_total", "age_mean",
-                                         "pop_00_15", "pop_16_75", "pop_76_90",
+                                         #"pop_00_15", "pop_16_75", "pop_76_90",
                                          "pop_00_15_prop", "pop_16_75_prop", "pop_76_90_prop", ]
 
 if option_imd == "Yes":
@@ -150,6 +149,8 @@ II = p_lads_norm[option_city == p_lads_norm.lad19nm].index[0]
 map_data = p_lads.iloc[indices[II]][[
     'lad19nm', "lat", "long"]].reset_index(drop=True)
 
+
+st.text( f"Methodology-wise: \n 1. We make the feature matrix based on the group(s) of features selected. \n 2. We normalise each feature to N(0,1). \n 3. We find the K-nearest neighbours.")
 
 st.write(
     f"The {option_nn} neighbours for {map_data.lad19nm[0]} are {list(map_data.lad19nm[1:])}.")
@@ -178,3 +179,13 @@ st.pydeck_chart(pdk.Deck(
 ))
 
 # %%
+if 'noise' not in cols_for_metric:
+    st.write(
+        p_lads.loc[p_lads["lad19nm"].isin(list(map_data.lad19nm[0:])),['lad19nm']+list(cols_for_metric)]
+    )
+
+    st.write(
+        p_lads_norm.loc[p_lads["lad19nm"].isin(list(map_data.lad19nm[0:])),['lad19nm']+list(cols_for_metric)]
+    )
+else:
+    st.write('We are matching on noise. :) ')
