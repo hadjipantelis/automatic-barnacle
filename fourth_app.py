@@ -162,10 +162,10 @@ st.write(
     f"Methodology-wise:  " +
     f"\n 1. We have {X_train.shape[1]} LADs in our donor pool.  (We have {p_lads_static.shape[0]-1} LADs availabe in total minus the exclusion list.)  " +
     f"\n 2. We use the per month average rate, 25th, 50th (median) and 75th quantile of the cases per 100K as the features we care for.  " +
-    f"\n 3. We find the linear combination W of them that minimises the discremancy X_j - X_0*W. " +
+    f"\n 3. We find the linear combination W of them that minimises the discrepancy X_j - X_0*W. " +
     f"\n - X_j is the k-length vector containing values of the pre-intervention features of the query unit j." +
     f"\n - X_0 is the k-by-{X_train.shape[1]} matrix containing values of the pre-intervention features of the donor pool units." +
-    f"\n 4. We minimize this discremancy by using an Elastic Net solver. We set all the coefficients to be non-negative and we have no intercept.  "
+    f"\n 4. We minimize this discrepancy by using an Elastic Net solver. We set all the coefficients to be non-negative and we have no intercept.  "
     f"\n 5. We create the synthetic control by multiplying the observed trajectories from the donor list with the coeffecients found above by Elastic Net.")
 
 # %%
@@ -250,7 +250,7 @@ ax.legend()
 st.pyplot(fig)
 
 st.write(
-    f"We show observed and synthetic {option_city} as well as dozen random LAD trajectories. " +
+    f"We show observed and synthetic {option_city} as well as a dozen random LAD trajectories. " +
     f"If our observed LAD trajectory (solid blue line) from February onwards is consistently below the synthetic trajecory " +
     f"(solid black line) then it seems {option_city} is doing better than expected, if it is consistently above the synthetic " +
     f"trajecory then {option_city} does worse than expected.")
@@ -264,7 +264,7 @@ Z['Area name'] = Z["Area code"].apply(lambda x: code_to_name_dict[x])
 Z['Normalised weight'] = Z['betas'] / Z['betas'].sum()
 
 # %%
-st.write("These are are the LADs used:")
+st.write(f"These are are the LADs used to create synthetic {option_city}:")
 
 
 # %%
