@@ -9,7 +9,7 @@ from sklearn.neighbors import NearestNeighbors
 from pandas.core.common import flatten
 
 st.title('How is my LTLA doing since February in terms of cases per 100K?')
-st.write("A synthetic controls inspired view.")
+st.write("A synthetic controls inspired view.  "+ "\n See ‎Abadie et al. (2015) `Comparative politics and the synthetic control method` for an accessible introduction. ")
 
 # %%
 # Read LAD boundaries (to have Lat-Long)
