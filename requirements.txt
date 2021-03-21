@@ -4,3 +4,4 @@ pydeck
 sklearn     
 openpyxl
 xlrd
+seaborn
