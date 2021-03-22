@@ -8,7 +8,7 @@ import matplotlib.pyplot as plt
 from sklearn.neighbors import NearestNeighbors
 from pandas.core.common import flatten
 
-st.title('How is my LTLA doing since February in terms of cases per 100K?')
+st.title('How is my LAD doing since February in terms of cases per 100K?')
 st.write("A synthetic controls inspired view.  "+ "\n See ‎Abadie et al. (2015) `Comparative politics and the synthetic control method` for an accessible introduction. ")
 
 # %%
@@ -116,7 +116,7 @@ p_lads_cases_pivot = pd.pivot_table(p_lads_cases_agg[(p_lads_cases_agg.ymonth > 
 
 # %%
 option_city = st.selectbox(
-    'What is your LTLA (Lower Tier Local Authority):',
+    'What is your LAD (Local Authority Districts):',
     np.sort(
         p_lads_static.lad19nm))
 
