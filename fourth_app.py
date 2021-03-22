@@ -233,6 +233,14 @@ ax.plot(pd.date_range(start_date, end_date),
         label='Observed ' + code_to_name_dict[query_lad_code])
 ax.plot(pd.date_range(start_date, end_date), synthetic_lad_trajectory,
         c='black', label='Synthetic ' + code_to_name_dict[query_lad_code])
+
+if max_y < np.max(p_lads_cases[p_lads_cases['Area code'] ==
+                     query_lad_code].roll_cases_100k):
+        max_y = 1.025 * np.max(p_lads_cases[p_lads_cases['Area code'] ==
+                     query_lad_code].roll_cases_100k)
+if max_y < np.max(synthetic_lad_trajectory):
+        max_y = 1.025 * np.max(synthetic_lad_trajectory)
+
 ax.set_xlabel('Time', fontweight='bold')
 ax.set_ylabel('Cases per 100k (7-day rolling mean)', fontweight='bold')
 
