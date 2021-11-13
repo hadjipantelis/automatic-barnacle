@@ -6,6 +6,7 @@ import pandas as pd
 import pydeck as pdk 
 from sklearn.neighbors import NearestNeighbors
 from sklearn.preprocessing import StandardScaler
+from sklearn.decomposition import PCA
 import geopandas as gpd
 
 st.title('My sixth app')
@@ -80,7 +81,9 @@ if generate_from_raw:
         '65+':"pop_65_plus",
     }, axis='columns', inplace=True)
     p_age_popul.to_csv("data/p_age_popul.csv", index=False)
+
 else:
+
     p_age_popul = pd.read_csv("data/p_age_popul.csv")
 
 # %%
@@ -108,7 +111,9 @@ if generate_from_raw:
        'Living Environment Decile (where 1 is most deprived 10% of LSOAs)': 'imd_living', 
     }, axis='columns', inplace=True)
     p_imd.to_csv("data/p_imd.csv", index=False)
+
 else:
+    
     p_imd = pd.read_csv("data/p_imd.csv")
 
 # %%
@@ -119,9 +124,8 @@ p_full = p_imd.merge(p_age_popul, on="LSOA Code").merge(
 )
 
 # %%
-### This is where the magic happens:
-
-
+### This is where the feature aggregation happens:
+ 
 option_gra = st.selectbox('Should we work at LTLA, UTLA, CCG, STP or CAL granularity:', ["LAD", "UTLA", "CCG", "STP","CAL"])
 
 if option_gra == "LAD":
@@ -158,62 +162,118 @@ p_full_agg = p_full.groupby(grouping_cols).aggregate({
     }).reset_index()
 
 p_full_agg['pop_density'] = np.round(p_full_agg['pop_all_ages']/p_full_agg['area'],1)
+
+p_full_agg['pop_00_15_prop'] = np.round(p_full_agg['pop_00_15']/p_full_agg['pop_all_ages'],3) 
+p_full_agg['pop_16_29_prop'] = np.round(p_full_agg['pop_16_29']/p_full_agg['pop_all_ages'],3) 
+p_full_agg['pop_30_44_prop'] = np.round(p_full_agg['pop_30_44']/p_full_agg['pop_all_ages'],3) 
+p_full_agg['pop_45_64_prop'] = np.round(p_full_agg['pop_45_64']/p_full_agg['pop_all_ages'],3) 
+p_full_agg['pop_65_plus_prop'] = np.round(p_full_agg['pop_65_plus']/p_full_agg['pop_all_ages'],3) 
+
 p_full_agg["noise"] = np.random.normal(0.0, 1.0, p_full_agg.shape[0]) 
 p_full_agg_norm = p_full_agg.copy() 
- 
 
-cols_to_norm = p_full_agg_norm.columns[2:]
-p_full_agg_norm[cols_to_norm] = StandardScaler().fit_transform(
-    p_full_agg_norm[cols_to_norm])
+# %%
+### Arranging the specifics of the KNNs
 
-# Arranging the specifics of the KNNs
-
-option_nn = st.selectbox('How many nearest neighbors:', np.arange(3, 13))
+# option_nn = st.selectbox('How many nearest neighbors:', np.arange(3, 13))
+option_nn = st.slider('How many nearest neighbors:', 3,13, 3,1)
 st.write(f"You selected {option_nn} neighbors around {option_city}.")
 
-option_age = st.selectbox('Should we use age info:', ["No", "Yes"])
-option_imd = st.selectbox('Should we use deprevation info:', ["No", "Yes"])
-option_spa = st.selectbox('Should we use spatial:', ["No", "Yes"])
+# option_age = st.selectbox('Should we use age info:', ["No", "Yes"])
+# option_imd = st.selectbox('Should we use deprevation info:', ["No", "Yes"])
+# option_spa = st.selectbox('Should we use spatial:', ["No", "Yes"])
+
+feat_options = st.multiselect(
+    'Which attributes groups should we use?', ['Age Proportions', 'IMD', 'Space', "Population Sizes" ]) 
+
+option_age = "No"
+option_imd = "No"
+option_spa = "Yes" 
+option_pop = "No" 
+
+option_pca = st.selectbox('Should we use PCA in our feature space:', ["No", "Yes"])
+
+if 'Age Proportions' in feat_options:
+    option_age = "Yes"
+if 'IMD' in feat_options:
+    option_imd = "Yes"
+if 'Space' in feat_options:
+    option_spa = "Yes"
+if 'Population Sizes' in feat_options:
+    option_pop = "Yes"
+
 cols_for_metric = ['noise']
 
 if option_age == "Yes":
-    cols_for_metric = cols_for_metric + [ "pop_00_15", "pop_16_29", "pop_30_44", 
-                                          "pop_45_64", "pop_65_plus", "approx_mean_age"]
+    cols_for_metric = cols_for_metric + [ "pop_00_15_prop", "pop_16_29_prop", "pop_30_44_prop", 
+                                          "pop_45_64_prop", "pop_65_plus_prop"]
 
 if option_imd == "Yes":
     cols_for_metric = cols_for_metric + ["imd_full", "imd_health","imd_employ","imd_living" ]
 
 if option_spa == "Yes":
-    cols_for_metric = cols_for_metric + \
-        ["area", "lati", "long", "pop_density", ]
+    cols_for_metric = cols_for_metric + ["area", "lati", "long", "pop_density", ]
 
-if (option_spa == "Yes") | (option_imd == "Yes") | (option_age == "Yes"):
+if option_pop == "Yes":
+    cols_for_metric = cols_for_metric +  [ "pop_00_15", "pop_16_29", "pop_30_44", 
+                                          "pop_45_64", "pop_65_plus", 'pop_all_ages']
+
+if (option_spa == "Yes") | (option_imd == "Yes") | (option_age == "Yes")| (option_pop == "Yes"):
     cols_for_metric.remove("noise")
+
+
+# %%
+### The KNN is implemented
+
+# Scale the input data to be N(0,1)
+cols_to_norm = p_full_agg_norm.columns[2:]
+p_full_agg_norm[cols_to_norm] = StandardScaler().fit_transform(
+    p_full_agg_norm[cols_to_norm])
 
 k = option_nn + 1
 nbrs = NearestNeighbors(n_neighbors=k, algorithm='ball_tree',)
 
+if (len(cols_for_metric) > 6) and ("No"==option_pca):
+    st.write( f"We have more than half-a-dozen variables," + 
+    " maybe we should use a reduced dimension space.")
 
-nbrs.fit(p_full_agg_norm[cols_for_metric])
-_, indices = nbrs.kneighbors(p_full_agg_norm[cols_for_metric])
+feat_matrix = p_full_agg_norm[cols_for_metric]
+if option_pca =="Yes":
+    pca_obj = PCA(n_components = feat_matrix.shape[1]).fit(feat_matrix)
+    k_comp_used = st.slider('How many components to use:', 2,feat_matrix.shape[1], 2,1)
+    _z = np.round(100* np.sum(pca_obj.explained_variance_ratio_[:k_comp_used]),1)
+    st.write(f"Our PCA space retains roughly {_z}% of the variance.")
+    feat_matrix = pca_obj.transform(feat_matrix)[:,:k_comp_used]
+
+nbrs.fit(feat_matrix)
+_, indices = nbrs.kneighbors(feat_matrix)
+
+# st.write(feat_matrix)
 
 II = p_full_agg_norm[option_city == p_full_agg_norm[grouping_cols[1]]].index[0]
 map_data = p_full_agg.iloc[indices[II]][[
         grouping_cols[1], "lati", "long"]].reset_index(drop=True)
 map_data['geography_name'] = map_data[grouping_cols[1]]
- 
- 
 
+# Write out the results
 st.write( f"Methodology-wise: \n "+
          f" 1. We make the feature matrix based on the group(s) of features selected. \n" +
-         f"2. We normalise each feature to N(0,1). \n" +
+         f"2. We normalise each feature to N(0,1) and optionally reduce the feature space using PCA. \n" +
          f"3. We find the K-nearest neighbours.")
 
-st.write(
-    f"The {option_nn} neighbours for {map_data.geography_name[0]} {option_gra} are {list(map_data.geography_name[1:])}.")
+n_neighbours = len(map_data.geography_name[1:])
+noise_warning = "But we are fitting on noise!" if "noise" in cols_for_metric else ''
+if n_neighbours>2:
+    other_neighbours = ', '.join(map_data["geography_name"][1:n_neighbours].values)
+    st.write(
+        f"The {option_nn} neighbours for {map_data.geography_name[0]} {option_gra} " + 
+        f"are: {other_neighbours} and {map_data.geography_name[n_neighbours]}." + 
+        f" {noise_warning}")
+
 st.write(f"The features to find the neighbours are {list(cols_for_metric)}.")
 
 # %%
+### Making the plots
 st.pydeck_chart(pdk.Deck(
     map_style='mapbox://styles/mapbox/light-v9',
     initial_view_state=pdk.ViewState(
