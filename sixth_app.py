@@ -188,7 +188,7 @@ feat_options = st.multiselect(
 
 option_age = "No"
 option_imd = "No"
-option_spa = "Yes" 
+option_spa = "No" 
 option_pop = "No" 
 
 option_pca = st.selectbox('Should we use PCA in our feature space:', ["No", "Yes"])
