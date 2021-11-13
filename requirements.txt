@@ -5,3 +5,4 @@ sklearn
 openpyxl
 xlrd
 seaborn
+geopandas
