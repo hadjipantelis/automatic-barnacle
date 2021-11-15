@@ -351,8 +351,8 @@ p_full_agg = p_full.groupby(grouping_cols).aggregate({
         'eth_all': np.sum,
         'tot_cases_spring_2021': np.mean,
         'tot_cases_summer_2021': np.mean,
-        'new_cases_spring_2021': np.sum,
-        'new_cases_summer_2021': np.sum,
+        'new_cases_spring_2021': np.mean,
+        'new_cases_summer_2021': np.mean,
     }).reset_index()
 
 p_full_agg['pop_density'] = np.round(p_full_agg['pop_all_ages']/p_full_agg['area'],1)
@@ -385,7 +385,7 @@ st.write(f"You selected {option_nn} neighbors around {option_city}.")
 
 feat_options = st.multiselect(
     'Which attributes groups should we use?', ['Age Proportions', 'IMD', 'Space', 
-    "Population Sizes", "Ethnicity Proportions", "New Cases", "Total Cases" ]) 
+    "Population Sizes", "Ethnicity Proportions", "New Cases (Daily Avg)", "Total Cases (Daily Avg)" ]) 
 
 option_age = "No"
 option_imd = "No"
@@ -407,9 +407,9 @@ if 'Population Sizes' in feat_options:
     option_pop = "Yes"
 if 'Ethnicity Proportions' in feat_options:
     option_eth = "Yes"
-if 'New Cases' in feat_options:
+if 'New Cases (Daily Avg)' in feat_options:
     option_case_new = "Yes"
-if 'Total Cases' in feat_options:
+if 'Total Cases (Daily Avg)' in feat_options:
     option_case_tot = "Yes"
 
 cols_for_metric = ['noise']
