@@ -150,11 +150,162 @@ else:
     p_eth = pd.read_csv("data/p_eth.csv")
 
 # %%
+### This is getting NEW CASES INFORMATION
+if generate_from_raw:
+
+    # Data from:
+    p_new_cases_raw= pd.read_csv(
+        'https://api.coronavirus.data.gov.uk/v2/data?areaType=LTLA&metric=newCasesBySpecimenDate&format=csv')
+
+    p_new_cases = p_new_cases_raw[p_new_cases_raw.areaCode.str.startswith('E')]
+
+    def get_season(x):
+        if (x >= "2021-03-01") and (x < "2021-06-01"):
+            return "spring_2021"
+        elif (x >= "2021-06-01") and (x < "2021-09-01"):
+            return "summer_2021"
+        else:
+            return "other_season"
+    p_new_cases['season'] = p_new_cases['date'].apply(lambda x: get_season(x))
+    p_new_cases = p_new_cases[~p_new_cases.season.str.startswith('other')]
+
+    ## Add mapping:
+    old_to_new_code_dict = dict({
+        # Buckins codes
+        "E07000004":"E06000060",
+        "E07000005":"E06000060",
+        "E07000006":"E06000060",
+        "E07000007":"E06000060",
+        # North Northamptonshire
+        "E07000156":"E06000061",
+        "E07000153":"E06000061",
+        "E07000152":"E06000061",
+        "E07000150":"E06000061",
+        # West Northamptonshire
+        "E07000155":"E06000062",
+        "E07000154":"E06000062",
+        "E07000151":"E06000062"
+    })
+    def fix_codes(x):
+        if x not in old_to_new_code_dict.keys():
+            return x
+        else:
+            return  old_to_new_code_dict[x]
+    p_new_cases['areaCode'] = p_new_cases['areaCode'].apply(lambda x: fix_codes(x))
+
+    p_new_cases = p_new_cases.groupby(['areaCode','season']).sum().reset_index()
+    p_new_cases = p_new_cases.merge(p_spatial_lexicon[['LSOA11CD','LAD21CD']], right_on="LAD21CD", left_on='areaCode' )
+    p_new_cases = p_new_cases.merge(p_age_popul[["LSOA Code",'pop_all_ages']],left_on='LSOA11CD',right_on="LSOA Code")
+
+    lad_pop = p_new_cases[p_new_cases.season =='spring_2021'].groupby('areaCode')['pop_all_ages'].sum().reset_index()
+    lad_pop.rename({
+        'pop_all_ages': 'pop_all_ages_lad', 
+         }, axis='columns', inplace=True)
+
+    p_new_cases = p_new_cases.merge(lad_pop, on='areaCode')
+    
+    # Get approximate LSOA cases assuming that cases are distributed in the 
+    # LSOAs of an LAD proportionally based on the LSOA population. 
+    p_new_cases['approx_lsoa_cases'] = np.round( 
+        p_new_cases['newCasesBySpecimenDate'] * 
+        p_new_cases['pop_all_ages'] / p_new_cases['pop_all_ages_lad'], 2)
+ 
+    p_new_cases=p_new_cases.pivot('LSOA Code', columns='season', values='approx_lsoa_cases').reset_index()
+    p_new_cases.rename({ 
+        'spring_2021': 'new_cases_spring_2021',
+        'summer_2021': 'new_cases_summer_2021'
+        }, axis='columns', inplace=True)
+
+    p_new_cases.to_csv("data/p_new_cases.csv", index=False)
+    del p_new_cases_raw
+
+else:
+
+    p_new_cases = pd.read_csv("data/p_new_cases.csv")
+
+# %%
+### This is getting TOTAL CASES INFORMATION
+if generate_from_raw:
+
+    # Data from:
+    p_tot_cases_raw= pd.read_csv(
+        'https://api.coronavirus.data.gov.uk/v2/data?areaType=LTLA&metric=newCasesBySpecimenDateRollingRate&format=csv')
+
+    p_tot_cases = p_tot_cases_raw[p_tot_cases_raw.areaCode.str.startswith('E')]
+
+    def get_season(x):
+        if (x >= "2021-03-01") and (x < "2021-06-01"):
+            return "spring_2021"
+        elif (x >= "2021-06-01") and (x < "2021-09-01"):
+            return "summer_2021"
+        else:
+            return "other_season"
+    p_tot_cases['season'] = p_tot_cases['date'].apply(lambda x: get_season(x))
+    p_tot_cases = p_tot_cases[~p_tot_cases.season.str.startswith('other')]
+
+    ## Add mapping:
+    old_to_new_code_dict = dict({
+        # Buckins codes
+        "E07000004":"E06000060",
+        "E07000005":"E06000060",
+        "E07000006":"E06000060",
+        "E07000007":"E06000060",
+        # North Northamptonshire
+        "E07000156":"E06000061",
+        "E07000153":"E06000061",
+        "E07000152":"E06000061",
+        "E07000150":"E06000061",
+        # West Northamptonshire
+        "E07000155":"E06000062",
+        "E07000154":"E06000062",
+        "E07000151":"E06000062"
+    })
+    def fix_codes(x):
+        if x not in old_to_new_code_dict.keys():
+            return x
+        else:
+            return  old_to_new_code_dict[x]
+    p_tot_cases['areaCode'] = p_tot_cases['areaCode'].apply(lambda x: fix_codes(x))
+
+    p_tot_cases = p_tot_cases.groupby(['areaCode','season']).sum().reset_index()
+    p_tot_cases = p_tot_cases.merge(p_spatial_lexicon[['LSOA11CD','LAD21CD']], right_on="LAD21CD", left_on='areaCode' )
+    p_tot_cases = p_tot_cases.merge(p_age_popul[["LSOA Code",'pop_all_ages']],left_on='LSOA11CD',right_on="LSOA Code")
+
+    lad_pop = p_tot_cases[p_tot_cases.season =='spring_2021'].groupby('areaCode')['pop_all_ages'].sum().reset_index()
+    lad_pop.rename({
+        'pop_all_ages': 'pop_all_ages_lad', 
+         }, axis='columns', inplace=True)
+
+    p_tot_cases = p_tot_cases.merge(lad_pop, on='areaCode')
+    
+    # Get approximate LSOA cases assuming that cases are distributed in the 
+    # LSOAs of an LAD proportionally based on the LSOA population. 
+    p_tot_cases['approx_lsoa_cases'] = np.round( 
+        p_tot_cases['newCasesBySpecimenDateRollingRate'] * 
+        p_tot_cases['pop_all_ages'] / p_tot_cases['pop_all_ages_lad'], 2)
+ 
+    p_tot_cases=p_tot_cases.pivot('LSOA Code', columns='season', values='approx_lsoa_cases').reset_index()
+
+    p_tot_cases.rename({ 
+        'spring_2021': 'tot_cases_spring_2021',
+        'summer_2021': 'tot_cases_summer_2021'
+        }, axis='columns', inplace=True)
+
+    p_tot_cases.to_csv("data/p_tot_cases.csv", index=False)
+    del p_tot_cases_raw
+
+else:
+
+    p_tot_cases = pd.read_csv("data/p_tot_cases.csv")
+
+
+# %%
 ### This is getting the FULL TABLE TO WORK WITH
 
 p_full = p_imd.merge(p_age_popul, on="LSOA Code").merge(
     p_spatial_lexicon, left_on="LSOA Code", right_on="LSOA11CD").merge(
-       p_eth, on="LSOA Code")
+       p_eth, on="LSOA Code").merge(p_tot_cases, on="LSOA Code").merge(
+           p_new_cases, on="LSOA Code") 
 
 # %%
 ### This is where the feature aggregation happens:
@@ -198,6 +349,10 @@ p_full_agg = p_full.groupby(grouping_cols).aggregate({
         'black': np.sum,
         'other': np.sum,
         'eth_all': np.sum,
+        'tot_cases_spring_2021': np.mean,
+        'tot_cases_summer_2021': np.mean,
+        'new_cases_spring_2021': np.sum,
+        'new_cases_summer_2021': np.sum,
     }).reset_index()
 
 p_full_agg['pop_density'] = np.round(p_full_agg['pop_all_ages']/p_full_agg['area'],1)
@@ -229,13 +384,16 @@ st.write(f"You selected {option_nn} neighbors around {option_city}.")
 # option_spa = st.selectbox('Should we use spatial:', ["No", "Yes"])
 
 feat_options = st.multiselect(
-    'Which attributes groups should we use?', ['Age Proportions', 'IMD', 'Space', "Population Sizes", "Ethnicity Proportions" ]) 
+    'Which attributes groups should we use?', ['Age Proportions', 'IMD', 'Space', 
+    "Population Sizes", "Ethnicity Proportions", "New Cases", "Total Cases" ]) 
 
 option_age = "No"
 option_imd = "No"
 option_spa = "No" 
 option_pop = "No" 
 option_eth = "No" 
+option_case_new = "No" 
+option_case_tot = "No" 
 
 option_pca = st.selectbox('Should we use PCA in our feature space:', ["No", "Yes"])
 
@@ -249,6 +407,10 @@ if 'Population Sizes' in feat_options:
     option_pop = "Yes"
 if 'Ethnicity Proportions' in feat_options:
     option_eth = "Yes"
+if 'New Cases' in feat_options:
+    option_case_new = "Yes"
+if 'Total Cases' in feat_options:
+    option_case_tot = "Yes"
 
 cols_for_metric = ['noise']
 
@@ -270,12 +432,26 @@ if option_eth == "Yes":
     cols_for_metric = cols_for_metric +  ['pop_white_prop', 'pop_asian_prop', 'pop_mixed_prop', 
                                           'pop_black_prop', 'pop_other_prop']
 
+if option_case_new == "Yes":
+    cols_for_metric = cols_for_metric +  ['new_cases_spring_2021', 'new_cases_summer_2021']
+
+if option_case_tot == "Yes":
+    cols_for_metric = cols_for_metric +  ['tot_cases_spring_2021', 'tot_cases_summer_2021']
+
 if ((option_spa == "Yes") | 
     (option_imd == "Yes") | 
     (option_age == "Yes") | 
     (option_pop == "Yes") | 
+    (option_case_tot == "Yes") | 
+    (option_case_new == "Yes") | 
     (option_eth == "Yes") ):
     cols_for_metric.remove("noise")
+
+
+if (option_pca == 'Yes') and (len(cols_for_metric) < 4):
+    st.write( f"With just {len(cols_for_metric)} features PCA is option in ignored"  )
+    option_pca = "No"
+
 
 
 # %%
