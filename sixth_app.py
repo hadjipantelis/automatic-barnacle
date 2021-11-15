@@ -117,11 +117,44 @@ else:
     p_imd = pd.read_csv("data/p_imd.csv")
 
 # %%
+### This is getting Ethnicity INFORMATION
+if generate_from_raw:
+
+    # Data from:
+    # https://github.com/RobertASmith/DoPE_Public/blob/master/raw_data/LSOA_Ethnicity.csv
+    p_eth= pd.read_csv(
+        "/Users/phadjipa/Downloads/LSOA_Ethnicity.csv",
+        skiprows=0)
+    p_eth = p_eth[
+      ["geography code"] + 
+      [my_col for my_col in p_eth.columns if "Sex: All persons; Age: All categories" in my_col] 
+    ]
+    
+    p_eth['white'] = p_eth[[my_col for my_col in p_eth.columns if ("Ethnic Group: White" in my_col) and (": Total" in my_col)]].sum(axis=1)
+    p_eth['asian'] = p_eth[[my_col for my_col in p_eth.columns if ("Ethnic Group: Asian" in my_col) and (": Total" in my_col)]].sum(axis=1)
+    p_eth['mixed'] = p_eth[[my_col for my_col in p_eth.columns if ("Ethnic Group: Mixed" in my_col) and (": Total" in my_col)]].sum(axis=1)
+    p_eth['black'] = p_eth[[my_col for my_col in p_eth.columns if ("Ethnic Group: Black" in my_col) and (": Total" in my_col)]].sum(axis=1)
+    p_eth['other'] = p_eth[[my_col for my_col in p_eth.columns if ("Ethnic Group: Other" in my_col) and (": Total" in my_col)]].sum(axis=1)
+
+    p_eth.rename({
+        'geography code': 'LSOA Code', 
+        'Sex: All persons; Age: All categories: Age; Ethnic Group: All categories: Ethnic group; measures: Value':'eth_all'
+        }, axis='columns', inplace=True)
+
+    p_eth = p_eth[['LSOA Code', 'other','black', 'mixed','asian', 'white', 'eth_all']]
+
+    p_eth.to_csv("data/p_eth.csv", index=False)
+
+else:
+    
+    p_eth = pd.read_csv("data/p_eth.csv")
+
+# %%
 ### This is getting the FULL TABLE TO WORK WITH
 
 p_full = p_imd.merge(p_age_popul, on="LSOA Code").merge(
-    p_spatial_lexicon, left_on="LSOA Code", right_on="LSOA11CD"
-)
+    p_spatial_lexicon, left_on="LSOA Code", right_on="LSOA11CD").merge(
+       p_eth, on="LSOA Code")
 
 # %%
 ### This is where the feature aggregation happens:
@@ -159,6 +192,12 @@ p_full_agg = p_full.groupby(grouping_cols).aggregate({
         'imd_health': np.mean, 
         'imd_employ': np.mean, 
         'imd_living': np.mean,
+        'white': np.sum,
+        'asian': np.sum,
+        'mixed': np.sum,
+        'black': np.sum,
+        'other': np.sum,
+        'eth_all': np.sum,
     }).reset_index()
 
 p_full_agg['pop_density'] = np.round(p_full_agg['pop_all_ages']/p_full_agg['area'],1)
@@ -168,6 +207,12 @@ p_full_agg['pop_16_29_prop'] = np.round(p_full_agg['pop_16_29']/p_full_agg['pop_
 p_full_agg['pop_30_44_prop'] = np.round(p_full_agg['pop_30_44']/p_full_agg['pop_all_ages'],3) 
 p_full_agg['pop_45_64_prop'] = np.round(p_full_agg['pop_45_64']/p_full_agg['pop_all_ages'],3) 
 p_full_agg['pop_65_plus_prop'] = np.round(p_full_agg['pop_65_plus']/p_full_agg['pop_all_ages'],3) 
+
+p_full_agg['pop_white_prop'] = np.round(p_full_agg['white']/p_full_agg['eth_all'],3)  
+p_full_agg['pop_asian_prop'] = np.round(p_full_agg['asian']/p_full_agg['eth_all'],3)  
+p_full_agg['pop_mixed_prop'] = np.round(p_full_agg['mixed']/p_full_agg['eth_all'],3)  
+p_full_agg['pop_black_prop'] = np.round(p_full_agg['black']/p_full_agg['eth_all'],3)  
+p_full_agg['pop_other_prop'] = np.round(p_full_agg['other']/p_full_agg['eth_all'],3)  
 
 p_full_agg["noise"] = np.random.normal(0.0, 1.0, p_full_agg.shape[0]) 
 p_full_agg_norm = p_full_agg.copy() 
@@ -184,12 +229,13 @@ st.write(f"You selected {option_nn} neighbors around {option_city}.")
 # option_spa = st.selectbox('Should we use spatial:', ["No", "Yes"])
 
 feat_options = st.multiselect(
-    'Which attributes groups should we use?', ['Age Proportions', 'IMD', 'Space', "Population Sizes" ]) 
+    'Which attributes groups should we use?', ['Age Proportions', 'IMD', 'Space', "Population Sizes", "Ethnicity Proportions" ]) 
 
 option_age = "No"
 option_imd = "No"
 option_spa = "No" 
 option_pop = "No" 
+option_eth = "No" 
 
 option_pca = st.selectbox('Should we use PCA in our feature space:', ["No", "Yes"])
 
@@ -201,6 +247,8 @@ if 'Space' in feat_options:
     option_spa = "Yes"
 if 'Population Sizes' in feat_options:
     option_pop = "Yes"
+if 'Ethnicity Proportions' in feat_options:
+    option_eth = "Yes"
 
 cols_for_metric = ['noise']
 
@@ -218,7 +266,15 @@ if option_pop == "Yes":
     cols_for_metric = cols_for_metric +  [ "pop_00_15", "pop_16_29", "pop_30_44", 
                                           "pop_45_64", "pop_65_plus", 'pop_all_ages']
 
-if (option_spa == "Yes") | (option_imd == "Yes") | (option_age == "Yes")| (option_pop == "Yes"):
+if option_eth == "Yes":
+    cols_for_metric = cols_for_metric +  ['pop_white_prop', 'pop_asian_prop', 'pop_mixed_prop', 
+                                          'pop_black_prop', 'pop_other_prop']
+
+if ((option_spa == "Yes") | 
+    (option_imd == "Yes") | 
+    (option_age == "Yes") | 
+    (option_pop == "Yes") | 
+    (option_eth == "Yes") ):
     cols_for_metric.remove("noise")
 
 
