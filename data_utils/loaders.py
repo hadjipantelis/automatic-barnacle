@@ -2,6 +2,7 @@ from urllib.request import ftpwrapper
 import geopandas as gpd
 import pandas as pd
 import numpy as np
+import hashlib
 
 
 def fetch_spatial_info(generate_from_raw: bool = False):
@@ -47,15 +48,22 @@ def fetch_spatial_info(generate_from_raw: bool = False):
             left_on="LAD21CD",
             right_on="LTLA20CD",
         )
-        p_spatial_lexicon.drop(columns=["LTLA20CD"], inplace=True)
+        p_spatial_lexicon.drop(columns=["LTLA20CD", "CCG21CDH"], inplace=True)
         del p_ltla_utla_mapping
 
         p_spatial_lexicon.to_csv("data/p_spatial_lexicon.csv", index=False)
 
-    else:
+    p_spatial_lexicon = pd.read_csv("data/p_spatial_lexicon.csv")
 
-        p_spatial_lexicon = pd.read_csv("data/p_spatial_lexicon.csv")
-        return p_spatial_lexicon
+    # Add MSOA name and MSOA-fake code
+    p_spatial_lexicon["MSOA11NM_APPX"] = p_spatial_lexicon.LSOA11NM.apply(
+        lambda x: x[: (len(x) - 1)]
+    )
+    p_spatial_lexicon["MSOA11CD_APPX"] = p_spatial_lexicon.MSOA11NM_APPX.apply(
+        lambda x: hashlib.md5(x.encode("utf-8")).hexdigest()[:13]
+    )
+
+    return p_spatial_lexicon
 
 
 def fetch_age_info(generate_from_raw: bool = False):
@@ -105,10 +113,8 @@ def fetch_age_info(generate_from_raw: bool = False):
         )
         p_age_popul.to_csv("data/p_age_popul.csv", index=False)
 
-    else:
-
-        p_age_popul = pd.read_csv("data/p_age_popul.csv")
-        return p_age_popul
+    p_age_popul = pd.read_csv("data/p_age_popul.csv")
+    return p_age_popul
 
 
 def fetch_imd_info(generate_from_raw: bool = False):
@@ -145,10 +151,8 @@ def fetch_imd_info(generate_from_raw: bool = False):
         )
         p_imd.to_csv("data/p_imd.csv", index=False)
 
-    else:
-
-        p_imd = pd.read_csv("data/p_imd.csv")
-        return p_imd
+    p_imd = pd.read_csv("data/p_imd.csv")
+    return p_imd
 
 
 def fetch_ethnicity_info(generate_from_raw: bool = False):
@@ -218,10 +222,8 @@ def fetch_ethnicity_info(generate_from_raw: bool = False):
 
         p_eth.to_csv("data/p_eth.csv", index=False)
 
-    else:
-
-        p_eth = pd.read_csv("data/p_eth.csv")
-        return p_eth
+    p_eth = pd.read_csv("data/p_eth.csv")
+    return p_eth
 
 
 def fetch_new_cases_info(generate_from_raw: bool = False):
@@ -327,7 +329,5 @@ def fetch_new_cases_info(generate_from_raw: bool = False):
         p_new_cases.to_csv("data/p_new_cases.csv", index=False)
         del p_new_cases_raw
 
-    else:
-
-        p_new_cases = pd.read_csv("data/p_new_cases.csv")
-        return p_new_cases
+    p_new_cases = pd.read_csv("data/p_new_cases.csv")
+    return p_new_cases
