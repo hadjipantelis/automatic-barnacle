@@ -10,7 +10,7 @@ from sklearn.decomposition import PCA
 import geopandas as gpd
 from data_utils import loaders
 
-st.title("Find your nearest neighbours:")
+st.title("Find your nearest neighbours for your English geography:")
 
 generate_from_raw = False
 
@@ -48,7 +48,7 @@ p_full = (
 ### This is where the feature aggregation happens:
 
 option_gra = st.selectbox(
-    "Should we work at LTLA, UTLA, CCG, STP, MSOA or CAL granularity:",
+    "Should we work at LAD, UTLA, CCG, STP, MSOA or CAL granularity:",
     ["LAD", "UTLA", "CCG", "STP", "MSOA", "CAL"],
 )
 
@@ -353,11 +353,12 @@ map_data = p_full_agg.iloc[indices[II]][[grouping_cols[1], "lati", "long"]].rese
 map_data["geography_name"] = map_data[grouping_cols[1]]
 
 # Write out the results
-st.write(
+st.text(
     f"Methodology-wise: \n "
-    + f" 1. We make the feature matrix based on the group(s) of features selected. \n"
-    + f"2. We normalise each feature to N(0,1) and optionally reduce the feature space using PCA. \n"
-    + f"3. We find the K-nearest neighbours."
+    + f"1. We aggregate LSOA-level data to the geographical granularity requested. \n"
+    + f"2. We make the feature matrix based based the group(s) of features selected. \n"
+    + f"3. We normalise each feature to N(0,1) and optionally reduce the feature space using PCA. \n"
+    + f"4. We find the K-nearest neighbours."
 )
 
 n_neighbours = len(map_data.geography_name[1:])
