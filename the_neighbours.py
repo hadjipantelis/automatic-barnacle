@@ -354,7 +354,7 @@ map_data["geography_name"] = map_data[grouping_cols[1]]
 
 # Write out the results
 st.text(
-    f"Methodology-wise: \n "
+    f"Methodology-wise: \n"
     + f"1. We aggregate LSOA-level data to the geographical granularity requested. \n"
     + f"2. We make the feature matrix based based the group(s) of features selected. \n"
     + f"3. We normalise each feature to N(0,1) and optionally reduce the feature space using PCA. \n"
