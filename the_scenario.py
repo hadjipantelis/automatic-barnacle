@@ -152,7 +152,7 @@ p_all = p_timevarying.merge(p_static_agg, right_on='LAD21CD', left_on= 'lad19cd'
 ### This is where we select our explanatory variables  
 feat_options = st.multiselect(
     "Which attributes groups should we use?" + 
-    "(This model is not regularised or validated properly so it will overfit - used only for illustration - a lot)",
+    "(This model is not regularised or validated properly so it is not a good fit - used for illustration)",
     [
         "Age Proportions",
         "IMD",
