@@ -337,3 +337,51 @@ def fetch_new_cases_info(generate_from_raw: bool = False):
 
     p_new_cases = pd.read_csv("data/p_new_cases.csv")
     return p_new_cases
+
+
+def fetch_rt_info(generate_from_raw: bool = False):
+    if generate_from_raw:
+        imperial_rt = pd.read_csv("https://imperialcollegelondon.github.io/covid19local/downloads/UK_hotspot_Rt_estimates.csv")
+        imperial_rt.rename(columns=dict({'area': 'la_name'}), inplace=True)
+        imperial_rt.date = imperial_rt.date.astype(np.datetime64)
+        imperial_rt.drop(columns=["CIlow",	"CIup",	"coverage"], inplace=True)
+        
+        imperial_rt.to_csv("data/imperial_rt.csv", index=False)
+        del imperial_rt
+
+    imperial_rt = pd.read_csv("data/imperial_rt.csv")
+    return imperial_rt
+
+
+def fetch_google_mobility_info(generate_from_raw: bool = False, england_only:bool = False):
+    if generate_from_raw:
+        _df_goog = pd.read_csv("/Users/phadjipa/Downloads/Global_Mobility_Report(1).csv") # Huge file
+
+        # Make this into a date.time
+        _df_goog.date = _df_goog.date.astype(np.datetime64)
+        # Subset
+        df_goog = _df_goog[(_df_goog.country_region_code == "GB") &  (_df_goog.date >= "2021-08-01")]
+        # Mapping from google to LAD
+        google_to_lad = pd.read_csv("https://raw.githubusercontent.com/datasciencecampus/google-mobility-reports-data/master/geography/google_mobility_lad_lookup_200903.csv")
+        google_to_lad = google_to_lad[~google_to_lad.lad19cd.isna()]
+        df_goog = df_goog.merge(google_to_lad[['sub_region_1','lad19cd','la_name']], on='sub_region_1',  how='inner')[
+            ["date", "retail_and_recreation_percent_change_from_baseline", "transit_stations_percent_change_from_baseline",
+             "workplaces_percent_change_from_baseline", "residential_percent_change_from_baseline", 
+              'grocery_and_pharmacy_percent_change_from_baseline',
+       'parks_percent_change_from_baseline',"lad19cd","la_name"]]
+        
+        df_goog.rename(columns=dict({'retail_and_recreation_percent_change_from_baseline': 'retail_mob',
+                                     "transit_stations_percent_change_from_baseline": "transit_mob",
+                                     "workplaces_percent_change_from_baseline": "workplace_mob",
+                                     "residential_percent_change_from_baseline": "residential_mob",
+                                     "parks_percent_change_from_baseline": "parks_mob",
+                                     "grocery_and_pharmacy_percent_change_from_baseline": "grocery_mob"
+        }), inplace=True)
+        if england_only:
+                df_goog = df_goog[df_goog.lad19cd.str.startswith('E')]
+
+        df_goog.to_csv("data/df_goog.csv", index=False)
+        del df_goog
+
+    df_goog = pd.read_csv("data/df_goog.csv")
+    return df_goog
