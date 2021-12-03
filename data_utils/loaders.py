@@ -242,6 +242,8 @@ def fetch_new_cases_info(generate_from_raw: bool = False):
                 return "spring_2021"
             elif (x >= "2021-06-01") and (x < "2021-09-01"):
                 return "summer_2021"
+            elif (x >= "2021-09-01") and (x < "2021-12-01"):
+                return "autumn_2021"
             else:
                 return "other_season"
 
@@ -321,7 +323,11 @@ def fetch_new_cases_info(generate_from_raw: bool = False):
             "LSOA Code", columns="season", values="approx_lsoa_cases"
         ).reset_index()
         p_new_cases.rename(
-            {"spring_2021": "nc_sprng_2021", "summer_2021": "nc_smmr_2021"},
+            {
+                "spring_2021": "nc_sprng_2021",
+                "summer_2021": "nc_smmr_2021",
+                "autumn_2021": "nc_atmn_2021",
+            },
             axis="columns",
             inplace=True,
         )

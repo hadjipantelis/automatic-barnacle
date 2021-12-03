@@ -103,15 +103,13 @@ p_full_agg = (
     .reset_index()
 )
 
-
+seasonal_names = ["nc_sprng_2021", "nc_smmr_2021", "nc_atmn_2021"]
 p_full_agg_cases = (
-    p_full[["nc_sprng_2021", "nc_smmr_2021"] + grouping_cols]
+    p_full[seasonal_names + grouping_cols]
     .groupby(grouping_cols)
     .quantile([0.25, 0.50, 0.75])
     .reset_index()
-    .pivot(
-        index=grouping_cols, columns="level_2", values=["nc_sprng_2021", "nc_smmr_2021"]
-    )
+    .pivot(index=grouping_cols, columns="level_2", values=seasonal_names)
 )
 p_full_agg_cases.columns = [
     "".join(str(a1)) for a1 in p_full_agg_cases.columns.to_flat_index()
@@ -124,6 +122,9 @@ p_full_agg_cases.rename(
         "('nc_smmr_2021', 0.25)": "nc_smmr_2021_q25",
         "('nc_smmr_2021', 0.5)": "nc_smmr_2021_q50",
         "('nc_smmr_2021', 0.75)": "nc_smmr_2021_q75",
+        "('nc_atmn_2021', 0.25)": "nc_atmn_2021_q25",
+        "('nc_atmn_2021', 0.5)": "nc_atmn_2021_q50",
+        "('nc_atmn_2021', 0.75)": "nc_atmn_2021_q75",
     },
     axis="columns",
     inplace=True,
@@ -131,26 +132,22 @@ p_full_agg_cases.rename(
 
 p_full_agg = p_full_agg.merge(p_full_agg_cases, on=grouping_cols)
 
-p_full_agg["nc_sprng_2021_q50_rate"] = (
-    100_000 * p_full_agg["nc_sprng_2021_q50"] / p_full_agg["pop_all_ages"]
-)
-p_full_agg["nc_smmr_2021_q50_rate"] = (
-    100_000 * p_full_agg["nc_smmr_2021_q50"] / p_full_agg["pop_all_ages"]
-)
 
-p_full_agg["nc_sprng_2021_q25_rate"] = (
-    100_000 * p_full_agg["nc_sprng_2021_q25"] / p_full_agg["pop_all_ages"]
-)
-p_full_agg["nc_smmr_2021_q25_rate"] = (
-    100_000 * p_full_agg["nc_smmr_2021_q25"] / p_full_agg["pop_all_ages"]
-)
+for _name in [
+    "nc_sprng_2021_q25",
+    "nc_smmr_2021_q25",
+    "nc_atmn_2021_q25",
+    "nc_sprng_2021_q50",
+    "nc_smmr_2021_q50",
+    "nc_atmn_2021_q50",
+    "nc_sprng_2021_q75",
+    "nc_smmr_2021_q75",
+    "nc_atmn_2021_q75",
+]:
 
-p_full_agg["nc_sprng_2021_q75_rate"] = (
-    100_000 * p_full_agg["nc_sprng_2021_q75"] / p_full_agg["pop_all_ages"]
-)
-p_full_agg["nc_smmr_2021_q75_rate"] = (
-    100_000 * p_full_agg["nc_smmr_2021_q75"] / p_full_agg["pop_all_ages"]
-)
+    p_full_agg[_name + "_rate"] = (
+        100_000 * p_full_agg[_name] / p_full_agg["pop_all_ages"]
+    )
 
 p_full_agg["nc_sprng_2021_iqr_rate"] = (
     p_full_agg["nc_sprng_2021_q75_rate"] - p_full_agg["nc_sprng_2021_q25_rate"]
@@ -158,7 +155,9 @@ p_full_agg["nc_sprng_2021_iqr_rate"] = (
 p_full_agg["nc_smmr_2021_iqr_rate"] = (
     p_full_agg["nc_smmr_2021_q75_rate"] - p_full_agg["nc_smmr_2021_q25_rate"]
 )
-
+p_full_agg["nc_atmn_2021_iqr_rate"] = (
+    p_full_agg["nc_atmn_2021_q75_rate"] - p_full_agg["nc_atmn_2021_q25_rate"]
+)
 
 p_full_agg["pop_density"] = np.round(p_full_agg["pop_all_ages"] / p_full_agg["area"], 1)
 
@@ -280,6 +279,8 @@ if option_case_new == "Yes":
         "nc_sprng_2021_q50_rate",
         "nc_smmr_2021_iqr_rate",
         "nc_smmr_2021_q50_rate",
+        "nc_atmn_2021_iqr_rate",
+        "nc_atmn_2021_q50_rate",
     ]
 
 
@@ -308,7 +309,7 @@ p_full_agg_norm[cols_to_norm] = StandardScaler().fit_transform(
     p_full_agg_norm[cols_to_norm]
 )
 
-# Initialise the NN 
+# Initialise the NN
 k = option_nn + 1
 nbrs = NearestNeighbors(
     n_neighbors=k,
@@ -344,8 +345,8 @@ _, indices = nbrs.kneighbors(feat_matrix)
 II = p_full_agg_norm[option_city == p_full_agg_norm[grouping_cols[1]]].index[0]
 
 # Add distances
-p_full_agg_norm['distances'] = 0.0
-p_full_agg_norm.loc[indices[II],'distances'] = _[II]
+p_full_agg_norm["distances"] = 0.0
+p_full_agg_norm.loc[indices[II], "distances"] = _[II]
 
 map_data = p_full_agg.iloc[indices[II]][[grouping_cols[1], "lati", "long"]].reset_index(
     drop=True
@@ -412,7 +413,7 @@ if "noise" not in cols_for_metric:
     st.write(
         p_full_agg_norm.loc[
             p_full_agg_norm[grouping_cols[1]].isin(list(map_data.geography_name[0:])),
-            [grouping_cols[1]] + list(cols_for_metric) + ['distances'],
+            [grouping_cols[1]] + list(cols_for_metric) + ["distances"],
         ]
     )
 else:
