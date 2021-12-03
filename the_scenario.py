@@ -309,7 +309,7 @@ if option_fit == "Yes":
         observed_n_counterfactual_rt = lock_down_df.groupby(['date', 'la_name'])[['Rt','y_hat_cf']].mean().reset_index()
         observed_n_counterfactual_rt.sort_values(['la_name','date'],inplace=True)
 
-        C = observed_n_expected_rt.merge(observed_n_counterfactual_ t, on=['date', 'la_name'])
+        C = observed_n_expected_rt.merge(observed_n_counterfactual_rt, on=['date', 'la_name'])
         C['the_effect'] = - C['hat_rt'] +  C['y_hat_cf']
         D = C[C.date >= "2021-11-01"][C.la_name.isin(['Bolton', 'Coventry', 'Derby','Rochford', 'Watford'])]
 
