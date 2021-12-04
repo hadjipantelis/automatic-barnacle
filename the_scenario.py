@@ -15,7 +15,7 @@ from numpy.random import default_rng
 rng = default_rng(123)
 
 st.title("Make a guess for the impact of your restrictions scenario on Rt")
-st.write("A Proof-of-Concept")
+st.write("A Proof-of-Concept with publically available data.")
 
 generate_from_raw = False
 
@@ -152,7 +152,7 @@ p_all = p_timevarying.merge(p_static_agg, right_on='LAD21CD', left_on= 'lad19cd'
 ### This is where we select our explanatory variables  
 feat_options = st.multiselect(
     "Which attributes groups should we use?" + 
-    "(This model is not regularised or validated properly so it is not a good fit - used for illustration)",
+    " (The underlying model is not regularised or validated properly so it is not a good fit - it used for illustration)",
     [
         "Age Proportions",
         "IMD",
@@ -246,11 +246,11 @@ if (
 from sklearn.ensemble import RandomForestRegressor
 from sklearn.metrics import mean_absolute_error, mean_squared_error
 
-rf_reg = RandomForestRegressor(max_depth=6, random_state=0,n_estimators=20, n_jobs=-1)
+rf_reg = RandomForestRegressor(max_depth=6, random_state=0, n_estimators=20, n_jobs=-1)
 full_df_work = p_all.dropna() # Obviously hammy!
 X, y = full_df_work[cols_for_model], full_df_work[response_variable]
 
-option_fit = st.selectbox("Ready to fit the model?", ["No", "Yes"]) 
+option_fit = st.selectbox("Ready to fit the random forest model?", ["No", "Yes"]) 
 
 if option_fit == "Yes":
     if (X.shape[1] == 5):
