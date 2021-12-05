@@ -47,7 +47,7 @@ p_imd = loaders.fetch_imd_info()
 ### This is getting Ethnicity INFORMATION
 p_eth = loaders.fetch_ethnicity_info()
 
-    # %%
+# %%
 ### This is getting Google mobility information
 p_google_mobility = loaders.fetch_google_mobility_info()
 
@@ -72,7 +72,6 @@ if option_gra == "LAD":
     grouping_cols = ["LAD21CD", "LAD21NM"]
 else:
     grouping_cols = ["useless geographical unit"]
-
 
 p_static_agg = (
     p_full.groupby(grouping_cols)
