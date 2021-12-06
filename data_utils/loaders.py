@@ -41,14 +41,14 @@ def fetch_spatial_info(generate_from_raw: bool = False):
         # Data from:
         # https://geoportal.statistics.gov.uk/datasets/lower-tier-local-authority-to-upper-tier-local-authority-december-2019-lookup-in-england-and-wales/explore
         p_ltla_utla_mapping = pd.read_csv(
-            "/Users/phadjipa/Downloads/Lower_Tier_Local_Authority_to_Upper_Tier_Local_Authority__December_2020__Lookup_in_England_and_Wales.csv"
+            "/Users/phadjipa/Downloads/Lower_Tier_Local_Authority_to_Upper_Tier_Local_Authority_(April_2021)_Lookup_in_England_and_Wales.csv"
         )
         p_spatial_lexicon = p_spatial_lexicon.merge(
-            p_ltla_utla_mapping[["LTLA20CD", "UTLA20CD", "UTLA20NM"]],
+            p_ltla_utla_mapping[["LTLA21CD", "UTLA21CD", "UTLA21NM"]],
             left_on="LAD21CD",
-            right_on="LTLA20CD",
+            right_on="LTLA21CD",
         )
-        p_spatial_lexicon.drop(columns=["LTLA20CD", "CCG21CDH"], inplace=True)
+        p_spatial_lexicon.drop(columns=["LTLA21CD", "CCG21CDH"], inplace=True)
         del p_ltla_utla_mapping
 
         p_spatial_lexicon.to_csv("data/p_spatial_lexicon.csv", index=False)

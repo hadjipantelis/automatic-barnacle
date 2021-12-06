@@ -66,7 +66,7 @@ elif option_gra == "CCG":
 elif option_gra == "MSOA":
     grouping_cols = ["MSOA11CD_APPX", "MSOA11NM_APPX"]
 elif option_gra == "UTLA":
-    grouping_cols = ["UTLA20CD", "UTLA20NM"]
+    grouping_cols = ["UTLA21CD", "UTLA21NM"]
 else:
     grouping_cols = ["useless geographical unit"]
 
