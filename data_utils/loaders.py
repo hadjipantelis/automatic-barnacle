@@ -41,14 +41,14 @@ def fetch_spatial_info(generate_from_raw: bool = False):
         # Data from:
         # https://geoportal.statistics.gov.uk/datasets/lower-tier-local-authority-to-upper-tier-local-authority-december-2019-lookup-in-england-and-wales/explore
         p_ltla_utla_mapping = pd.read_csv(
-            "/Users/phadjipa/Downloads/Lower_Tier_Local_Authority_to_Upper_Tier_Local_Authority__December_2020__Lookup_in_England_and_Wales.csv"
+            "/Users/phadjipa/Downloads/Lower_Tier_Local_Authority_to_Upper_Tier_Local_Authority_(April_2021)_Lookup_in_England_and_Wales.csv"
         )
         p_spatial_lexicon = p_spatial_lexicon.merge(
-            p_ltla_utla_mapping[["LTLA20CD", "UTLA20CD", "UTLA20NM"]],
+            p_ltla_utla_mapping[["LTLA21CD", "UTLA21CD", "UTLA21NM"]],
             left_on="LAD21CD",
-            right_on="LTLA20CD",
+            right_on="LTLA21CD",
         )
-        p_spatial_lexicon.drop(columns=["LTLA20CD", "CCG21CDH"], inplace=True)
+        p_spatial_lexicon.drop(columns=["LTLA21CD", "CCG21CDH"], inplace=True)
         del p_ltla_utla_mapping
 
         p_spatial_lexicon.to_csv("data/p_spatial_lexicon.csv", index=False)
@@ -226,7 +226,7 @@ def fetch_ethnicity_info(generate_from_raw: bool = False):
     return p_eth
 
 
-def fetch_new_cases_info(generate_from_raw: bool = False):
+def fetch_new_cases_info(generate_from_raw: bool = False, england_only: bool = True, aggregate_to_seasons: bool = True):
 
     if generate_from_raw:
 
@@ -235,8 +235,11 @@ def fetch_new_cases_info(generate_from_raw: bool = False):
             "https://api.coronavirus.data.gov.uk/v2/data?areaType=LTLA&metric=newCasesBySpecimenDate&format=csv"
         )
 
-        p_new_cases = p_new_cases_raw[p_new_cases_raw.areaCode.str.startswith("E")]
+        # Select England only
+        if england_only:
+            p_new_cases = p_new_cases_raw[p_new_cases_raw.areaCode.str.startswith("E")]
 
+        # Helper function to get season
         def get_season(x):
             if (x >= "2021-03-01") and (x < "2021-06-01"):
                 return "spring_2021"
@@ -244,9 +247,14 @@ def fetch_new_cases_info(generate_from_raw: bool = False):
                 return "summer_2021"
             elif (x >= "2021-09-01") and (x < "2021-12-01"):
                 return "autumn_2021"
+            elif (x >= "2021-12-01") and (x < "2022-02-01"):
+                return "winter_2022"
+            elif (x >= "2020-12-01") and (x < "2021-02-01"):
+                return "winter_2021"
             else:
                 return "other_season"
 
+        # Add season as a variable and drop non-interesting season entries
         p_new_cases["season"] = p_new_cases["date"].apply(lambda x: get_season(x))
         p_new_cases = p_new_cases[~p_new_cases.season.str.startswith("other")]
 
@@ -270,36 +278,56 @@ def fetch_new_cases_info(generate_from_raw: bool = False):
             }
         )
 
+        # Helper function to update LAD codes
         def fix_codes(x):
             if x not in old_to_new_code_dict.keys():
                 return x
             else:
                 return old_to_new_code_dict[x]
 
+        # Fix LAD codes
         p_new_cases["areaCode"] = p_new_cases["areaCode"].apply(lambda x: fix_codes(x))
 
-        p_new_cases = p_new_cases.groupby(["areaCode", "season"]).sum().reset_index()
+        # Perform aggregation based on season (if needed)
+        if aggregate_to_seasons:
+            p_new_cases = p_new_cases.groupby(["areaCode", "season"]).sum().reset_index()
+        else:  
+            p_new_cases = p_new_cases.groupby(["areaCode"]).sum().reset_index()
 
         p_spatial_lexicon = fetch_spatial_info()
         p_age_popul = fetch_age_info()
 
+        # add information about which LSOA we examine
         p_new_cases = p_new_cases.merge(
             p_spatial_lexicon[["LSOA11CD", "LAD21CD"]],
             right_on="LAD21CD",
             left_on="areaCode",
         )
+
+        # add information about what is the underlaying LSOA population we examine
         p_new_cases = p_new_cases.merge(
             p_age_popul[["LSOA Code", "pop_all_ages"]],
             left_on="LSOA11CD",
             right_on="LSOA Code",
         )
 
-        lad_pop = (
-            p_new_cases[p_new_cases.season == "spring_2021"]
-            .groupby("areaCode")["pop_all_ages"]
-            .sum()
-            .reset_index()
-        )
+        # Aggregate the LSOA populations to get the LAD population
+        if aggregate_to_seasons:
+            lad_pop = (
+                p_new_cases[p_new_cases.season == "spring_2021"]
+                .groupby("areaCode")["pop_all_ages"]
+                .sum()
+                .reset_index()
+            )
+        else:
+            lad_pop = (
+                p_new_cases[p_new_cases.date == "2021-08-18"]
+                .groupby("areaCode")["pop_all_ages"]
+                .sum()
+                .reset_index()
+            )
+
+        # Basic renaming as this is really LAD population now   
         lad_pop.rename(
             {
                 "pop_all_ages": "pop_all_ages_lad",
@@ -308,6 +336,7 @@ def fetch_new_cases_info(generate_from_raw: bool = False):
             inplace=True,
         )
 
+        # Add LAD population to the main dataset
         p_new_cases = p_new_cases.merge(lad_pop, on="areaCode")
 
         # Get approximate LSOA cases assuming that cases are distributed in the
@@ -320,22 +349,33 @@ def fetch_new_cases_info(generate_from_raw: bool = False):
         )
 
         p_new_cases = p_new_cases.pivot(
-            "LSOA Code", columns="season", values="approx_lsoa_cases"
+            "LSOA Code", 
+            columns="season" if aggregate_to_seasons else "date", 
+            values="approx_lsoa_cases"
         ).reset_index()
-        p_new_cases.rename(
-            {
-                "spring_2021": "nc_sprng_2021",
-                "summer_2021": "nc_smmr_2021",
-                "autumn_2021": "nc_atmn_2021",
-            },
-            axis="columns",
-            inplace=True,
-        )
+        
+        if aggregate_to_seasons:
+            p_new_cases.rename(
+                {
+                    "spring_2021": "nc_sprng_2021",
+                    "summer_2021": "nc_smmr_2021",
+                    "autumn_2021": "nc_atmn_2021",
+                },
+                axis="columns",
+                inplace=True,
+            )
+        if aggregate_to_seasons: 
+            p_new_cases.to_csv("data/p_new_cases.csv", index=False)
+        else:
+            p_new_cases.to_csv("data/p_new_cases_dates.csv", index=False)
 
-        p_new_cases.to_csv("data/p_new_cases.csv", index=False)
         del p_new_cases_raw
 
-    p_new_cases = pd.read_csv("data/p_new_cases.csv")
+    if aggregate_to_seasons:
+        p_new_cases = pd.read_csv("data/p_new_cases.csv")
+    else: 
+        p_new_cases = pd.read_csv("data/p_new_cases_dates.csv")
+        
     return p_new_cases
 
 
