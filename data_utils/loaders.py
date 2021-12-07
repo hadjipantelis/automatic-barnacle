@@ -238,6 +238,8 @@ def fetch_new_cases_info(generate_from_raw: bool = False, england_only: bool = T
         # Select England only
         if england_only:
             p_new_cases = p_new_cases_raw[p_new_cases_raw.areaCode.str.startswith("E")]
+        else:
+            p_new_cases  = p_new_cases_raw.copy()
 
         # Helper function to get season
         def get_season(x):
@@ -292,7 +294,7 @@ def fetch_new_cases_info(generate_from_raw: bool = False, england_only: bool = T
         if aggregate_to_seasons:
             p_new_cases = p_new_cases.groupby(["areaCode", "season"]).sum().reset_index()
         else:  
-            p_new_cases = p_new_cases.groupby(["areaCode"]).sum().reset_index()
+            p_new_cases = p_new_cases.groupby(["areaCode", "date"]).sum().reset_index()
 
         p_spatial_lexicon = fetch_spatial_info()
         p_age_popul = fetch_age_info()
