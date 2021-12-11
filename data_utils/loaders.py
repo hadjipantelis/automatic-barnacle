@@ -92,7 +92,7 @@ def fetch_lsoa_nhs_trust_info(generate_from_raw: bool = False):
         # %%
         # Magic Happens here:
         # (In David Attenborough voice: 
-        # "That is cross-join, the most voluminous of all joins. Only in raried of occasions it is seen in the wild.")
+        # "That is cross-join, the most voluminous of all joins. Only in rarified occasions it is seen in the wild.")
         lazy_merge = p_lsoa_location.assign(dummy_var=1).merge(area_codes_lat_lon.assign(dummy_var=1),on='dummy_var')
         lazy_merge.drop(columns=['dummy_var'], inplace=True)
         # Calculate distances between all LSOA and all NHS Trusts (yes, not a Eucleadian geometry I know.)
