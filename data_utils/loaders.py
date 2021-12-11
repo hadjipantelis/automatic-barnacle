@@ -4,6 +4,116 @@ import pandas as pd
 import numpy as np
 import hashlib
 
+def fetch_lsoa_nhs_trust_info(generate_from_raw: bool = False):
+    if generate_from_raw:
+        #  %%
+        # Get catalogue of all NHS Trusts used by the API
+        new_cases = pd.read_csv("https://api.coronavirus.data.gov.uk/v2/data?areaType=nhsTrust&metric=newAdmissions&format=csv")
+        new_cases.drop_duplicates('areaCode', inplace=True)
+        nhs_trusts_catalogue = new_cases[["areaCode", "areaName"]]
+
+        # %%
+        # Get UK postcodes to LAT-LONG
+        # From https://www.freemaptools.com/download/full-uk-postcodes/ukpostcodes.zip
+        # in https://www.freemaptools.com/download-uk-postcode-lat-lng.htm (big file)
+        pc_latlong = pd.read_csv("/Users/phadjipa/Downloads/ukpostcodes 2.csv")
+
+        # %%
+        # Get UK postcodes to NHS Trusts from NHSD (almost all)
+        # From https://files.digital.nhs.uk/assets/ods/current/etrust.zip in
+        # https://digital.nhs.uk/services/organisation-data-service/file-downloads/other-nhs-organisations
+        nhs_trusts_pc = pd.read_csv("/Users/phadjipa/Downloads/etrust/etrust.csv", header=None)
+        nhs_trusts_pc = nhs_trusts_pc.iloc[:, [0,1,9] ]
+        nhs_trusts_pc.columns= ['area_code','area_name', 'post_code']
+
+        # %%
+        # Add functionality to get some weird postcodes.
+        aux_post_codes = dict({
+            
+            # These four are in from the XLSX https://www.england.nhs.uk/wp-content/uploads/2014/11/nhs-non-nhs-ods-codes.xlsx
+            "TAD":"BD18 3LA", # BRADFORD DISTRICT CARE TRUST
+            "TAE":"M21 9UN",  # MANCHESTER MENTAL HEALTH AND SOCIAL CARE TRUST
+            "TAF":"NW1 0PE",  # CAMDEN AND ISLINGTON NHS FOUNDATION TRUST
+            "TAH":"S10 3TH",  # SHEFFIELD HEALTH & SOCIAL CARE NHS FOUNDATION TRUST
+            "TAJ":"B70 9PL",  # BLACK COUNTRY PARTNERSHIP NHS FOUNDATION TRUST
+
+            # These are the Nightgale Hospital PH had to look up online.
+            "NRRK": "B40 1NT", # NHS Nightingale Hospital Birmingham
+            "NR1H" : "E16 1XL", #NHS Nightingale Hospital London (phase 1)	
+            "N4H3U": "E16 1XL", # NHS Nightingale Hospital London (phase 2)
+            "NR0A": "M3 4LP", #NHS Nightingale Hospital North West
+            "NRH8": "EX2 7JG", #NHS Nightingale Hospital Exeter
+            "NRR8": "HG1 5LA", # NHS Nightingale Hospital Yorkshire and The Humber  
+        
+        })
+        
+        def add_a_few_mode_pcs(x):
+            if x in aux_post_codes.keys():
+                return aux_post_codes[x]
+            else:
+                return np.NaN
+
+        # %%
+        # Merge NHSD trusts&pcs with the API trusts
+        nhs_trusts_pc = nhs_trusts_catalogue.merge(nhs_trusts_pc, how="left", left_on="areaCode", right_on="area_code") 
+        nhs_trusts_pc['more_pcs'] = nhs_trusts_pc['areaCode'].apply(lambda x: add_a_few_mode_pcs(x))
+        nhs_trusts_pc['filled_post_codes']= nhs_trusts_pc['post_code'].fillna(nhs_trusts_pc['more_pcs'])
+
+        # %%
+        # Add long-lat
+        nhs_trusts_pc_latlong = nhs_trusts_pc[["filled_post_codes",'areaCode','areaName']].merge(
+            pc_latlong[['postcode', 'latitude', 'longitude']], 
+            how="left", left_on="filled_post_codes", right_on="postcode")
+
+        area_codes_lat_lon = nhs_trusts_pc_latlong[["latitude","longitude", "areaCode",'areaName']]
+
+        # %%
+        # Get LSOA catalogue with LAT-LONG
+        # Data from:
+        # http://www.ons.gov.uk/ons/guide-method/geography/products/census/spatial/2011/index.html
+        gpd_lsoa_location = gpd.read_file(
+            "/Users/phadjipa/Downloads/Lower_layer_super_output_areas_(E+W)_2011_Boundaries_(Generalised_Clipped)_V2/"
+            + "LSOA_2011_EW_BGC_V2.shp"
+            )
+        p_lat_lon = gpd_lsoa_location.geometry.centroid.to_crs(epsg=4326)
+        p_area = gpd_lsoa_location.geometry.area / (1000 ** 2)
+        p_lsoa_location = pd.DataFrame(
+                {
+                    "lsoa11cd": gpd_lsoa_location.LSOA11CD,
+                    "area": p_area,
+                    "lati": p_lat_lon.y,
+                    "long": p_lat_lon.x,
+                    }
+        )
+
+        p_lsoa_location = p_lsoa_location[p_lsoa_location.lsoa11cd.str.startswith('E')]  # England only
+        p_lsoa_location.drop(columns=['area'], inplace=True)
+
+        # %%
+        # Magic Happens here:
+        # (In David Attenborough voice: 
+        # "That is cross-join, the most voluminous of all joins. Only in raried of occasions it is seen in the wild.")
+        lazy_merge = p_lsoa_location.assign(dummy_var=1).merge(area_codes_lat_lon.assign(dummy_var=1),on='dummy_var')
+        lazy_merge.drop(columns=['dummy_var'], inplace=True)
+        # Calculate distances between all LSOA and all NHS Trusts (yes, not a Eucleadian geometry I know.)
+        lazy_merge['appox_dist'] = np.sqrt((lazy_merge['lati'] - lazy_merge['latitude'])**2 + (lazy_merge['long'] - lazy_merge['longitude'])**2)
+        # For each LSOA keep its closest NHS Trust
+        p_lsoa_nhs_trust_map = lazy_merge.sort_values('appox_dist').drop_duplicates('lsoa11cd')[['lsoa11cd','areaCode','areaName']].reset_index(drop=True)
+
+        p_lsoa_nhs_trust_map.rename(
+                {
+                    "areaCode":"nhstrustcd",
+                    "areaName":"nhstrustnm",
+                },
+                axis="columns",
+                inplace=True,
+            )
+
+        p_lsoa_nhs_trust_map.to_csv("data/p_lsoa_nhs_trust_map.csv", index=False)
+
+    p_lsoa_nhs_trust_map = pd.read_csv("data/p_lsoa_nhs_trust_map.csv")
+    return p_lsoa_nhs_trust_map
+
 
 def fetch_spatial_info(generate_from_raw: bool = False):
 
@@ -50,6 +160,12 @@ def fetch_spatial_info(generate_from_raw: bool = False):
         )
         p_spatial_lexicon.drop(columns=["LTLA21CD", "CCG21CDH"], inplace=True)
         del p_ltla_utla_mapping
+
+        p_lsoa_nhs_trust_map  = fetch_lsoa_nhs_trust_info()
+        p_spatial_lexicon = p_spatial_lexicon.merge(
+            p_lsoa_nhs_trust_map, left_on="LSOA11CD", right_on='lsoa11cd'
+        )
+        p_spatial_lexicon.drop(columns=["lsoa11cd"], inplace=True)
 
         p_spatial_lexicon.to_csv("data/p_spatial_lexicon.csv", index=False)
 
@@ -249,10 +365,10 @@ def fetch_new_cases_info(generate_from_raw: bool = False, england_only: bool = T
                 return "summer_2021"
             elif (x >= "2021-09-01") and (x < "2021-12-01"):
                 return "autumn_2021"
-            elif (x >= "2021-12-01") and (x < "2022-02-01"):
-                return "winter_2022"
             elif (x >= "2020-12-01") and (x < "2021-02-01"):
                 return "winter_2021"
+            elif (x >= "2021-12-01") and (x < "2022-02-01"):
+                return "winter_2022"
             else:
                 return "other_season"
 
@@ -362,6 +478,8 @@ def fetch_new_cases_info(generate_from_raw: bool = False, england_only: bool = T
                     "spring_2021": "nc_sprng_2021",
                     "summer_2021": "nc_smmr_2021",
                     "autumn_2021": "nc_atmn_2021",
+                    "winter_2021": "nc_wntr_2021",
+                    "winter_2022": "nc_wntr_2022",
                 },
                 axis="columns",
                 inplace=True,

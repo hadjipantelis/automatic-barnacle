@@ -32,7 +32,7 @@ p_eth = loaders.fetch_ethnicity_info()
 
 # %%
 ### This is getting NEW CASES INFORMATION
-p_new_cases = loaders.fetch_new_cases_info()
+p_new_cases = loaders.fetch_new_cases_info( )
 
 # %%
 ### This is getting the FULL TABLE TO WORK WITH
@@ -48,8 +48,8 @@ p_full = (
 ### This is where the feature aggregation happens:
 
 option_gra = st.selectbox(
-    "Should we work at LAD, UTLA, CCG, STP, MSOA or CAL granularity:",
-    ["LAD", "UTLA", "CCG", "STP", "MSOA", "CAL"],
+    "Should we work at LAD, UTLA, CCG, STP, MSOA, NHS Trust or CAL granularity:",
+    ["LAD", "UTLA", "CCG", "STP", "MSOA", "CAL","NHST"],
 )
 
 if option_gra == "LAD":
@@ -67,6 +67,8 @@ elif option_gra == "MSOA":
     grouping_cols = ["MSOA11CD_APPX", "MSOA11NM_APPX"]
 elif option_gra == "UTLA":
     grouping_cols = ["UTLA21CD", "UTLA21NM"]
+elif option_gra == "NHST":
+    grouping_cols = ["nhstrustcd", "nhstrustnm"]
 else:
     grouping_cols = ["useless geographical unit"]
 
